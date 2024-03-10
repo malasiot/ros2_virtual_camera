@@ -11,6 +11,8 @@ find_package(moveit_ros_planning_interface REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(xviz REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(OpenCV 4 REQUIRED)
+find_package(cv_bridge REQUIRED)
 
 add_executable(test_moveit src/test_moveit.cpp)
 target_include_directories(test_moveit PUBLIC
@@ -33,11 +35,26 @@ target_include_directories(test_urdf PUBLIC
 target_compile_features(test_urdf PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 ament_target_dependencies(
   test_urdf
-  rclcpp std_msgs sensor_msgs Eigen3
+  rclcpp std_msgs sensor_msgs tf2
+  tf2_ros Eigen3
 )
 target_link_libraries(test_urdf xviz)
 
-install(TARGETS test_moveit test_urdf
+add_executable(virtual_camera src/virtual_camera.cpp src/virtual_camera_node.cpp src/virtual_camera_node.hpp)
+target_include_directories(virtual_camera PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${OpenCV_INCLUDE_DIRS})
+target_compile_features(virtual_camera PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+ament_target_dependencies(
+  virtual_camera
+  rclcpp std_msgs sensor_msgs tf2
+  tf2_ros tf2_eigen cv_bridge Eigen3
+)
+target_link_libraries(virtual_camera xviz ${OpenCV_LIBRARIES})
+
+
+install(TARGETS test_moveit test_urdf virtual_camera
   DESTINATION lib/${PROJECT_NAME})
   
 install(DIRECTORY launch

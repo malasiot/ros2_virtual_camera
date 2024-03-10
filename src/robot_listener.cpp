@@ -45,7 +45,7 @@ RobotListener::RobotListener(const std::string &urdf_path, RobotViewer *viewer)
     })) ;
 
     QMetaObject::invokeMethod(viewer_, [=]() {
-       viewer_->setRobot(robot);
+        viewer_->setRobot(robot);
     }, Qt::ConnectionType::QueuedConnection);
 
     auto subscriber_options = rclcpp::SubscriptionOptions();
@@ -58,6 +58,25 @@ RobotListener::RobotListener(const std::string &urdf_path, RobotViewer *viewer)
                 rclcpp::SensorDataQoS(),
                 std::bind(&RobotListener::jointStateCallback, this, std::placeholders::_1),
                 subscriber_options);
+
+    target_frame_ = declare_parameter<std::string>("camera_frame", "camera_optical_frame");
+
+    tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+    try {
+        geometry_msgs::msg::TransformStamped t  = tf_buffer_->lookupTransform(
+                    "world", target_frame_,
+                    tf2::TimePointZero, tf2::durationFromSec(5));
+
+        RCLCPP_INFO(
+                    this->get_logger(), "ok") ;
+    } catch (const tf2::TransformException & ex) {
+        RCLCPP_INFO(
+                    this->get_logger(), "Could not transform world to %s: %s",
+                    target_frame_.c_str(), ex.what());
+        return;
+    }
 
 }
 
@@ -116,6 +135,6 @@ void RobotListener::jointStateCallback(const sensor_msgs::msg::JointState::Share
 
 void RobotListener::updateTransforms(const std::map<std::string, double> &joint_positions, const builtin_interfaces::msg::Time &time) {
     QMetaObject::invokeMethod(viewer_, [=]() {
-       viewer_->updateTransforms(joint_positions);
+        viewer_->updateTransforms(joint_positions);
     }, Qt::ConnectionType::QueuedConnection);
 }
