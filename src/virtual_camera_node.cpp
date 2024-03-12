@@ -224,7 +224,7 @@ void VirtualCameraNode::fetchCameraFrame()
             camera_tr_ = tf2::transformToEigen(t).cast<float>();
 
             // fix ROS camera frame convention
-            camera_tr_(0, 0) *= -1 ; camera_tr_(0, 1) *= -1 ; camera_tr_(0, 2) *= -1 ; camera_tr_(0, 3) *= -1 ;
+            camera_tr_(1, 0) *= -1 ; camera_tr_(1, 1) *= -1 ; camera_tr_(1, 2) *= -1 ; camera_tr_(1, 3) *= -1 ;
             camera_tr_(2, 0) *= -1 ; camera_tr_(2, 1) *= -1 ; camera_tr_(2, 2) *= -1 ; camera_tr_(2, 3) *= -1 ;
 
             pcam_->setViewTransform(camera_tr_.matrix());
