@@ -83,7 +83,7 @@ VirtualCameraNode::VirtualCameraNode(const std::string &urdf_path)
     declare_parameter("robot_description", rclcpp::PARAMETER_STRING) ;
     target_frame_ = declare_parameter("camera_frame",  "camera_optical_frame") ;
     double publish_freq = declare_parameter("update_freq", (double)10.0) ;
-    yfov_ = declare_parameter("fov", (double)53.0) * M_PI/180.0;
+    yfov_ = declare_parameter("fov", yfov_) * M_PI/180.0;
     string frame_size = declare_parameter("frame_size", "1024x768") ;
     std::string camera_namespace = declare_parameter("camera_namespace", "") ;
     std::string camera_name = declare_parameter("image_topic", "virtual_camera") ;
@@ -129,7 +129,7 @@ VirtualCameraNode::VirtualCameraNode(const std::string &urdf_path)
     string pcl_topic = prefix_ + "/points" ;
     pcl_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(pcl_topic, 10) ;
 
-    PerspectiveCamera *pcam = new PerspectiveCamera(1, // aspect ratio
+    PerspectiveCamera *pcam = new PerspectiveCamera(width_/(float)height_, // aspect ratio
                                                     yfov_,   // fov
                                                     0.01,        // zmin
                                                     10           // zmax
@@ -228,7 +228,6 @@ struct DepthTraits<float>
     }
 };
 
-template<typename T>
 void convert(
         const cv::Mat & depth,
         const cv::Mat &clr,
@@ -243,7 +242,7 @@ void convert(
     float center_y = model.cy();
 
     // Combine unit conversion (if necessary) with scaling by focal length for computing (X,Y)
-    double unit_scaling = DepthTraits<T>::toMeters(T(1) );
+    double unit_scaling = 0.001f ;
     float constant_x = unit_scaling / model.fx();
     float constant_y = unit_scaling / model.fy();
     float bad_point = std::numeric_limits<float>::quiet_NaN();
@@ -252,42 +251,27 @@ void convert(
     sensor_msgs::PointCloud2Iterator<float> iter_y(*cloud_msg, "y");
     sensor_msgs::PointCloud2Iterator<float> iter_z(*cloud_msg, "z");
     sensor_msgs::PointCloud2Iterator<float> iter_rgb(*cloud_msg, "rgb");
-    const T * depth_row = reinterpret_cast<const T *>(&depth.data[0]);
-    int row_step = depth.step / sizeof(T);
+    const uint16_t * depth_row = reinterpret_cast<const uint16_t *>(&depth.data[0]);
+    int row_step = depth.step / sizeof(uint16_t);
     for (int v = 0; v < static_cast<int>(cloud_msg->height); ++v, depth_row += row_step) {
         for (int u = 0; u < static_cast<int>(cloud_msg->width); ++u, ++iter_x, ++iter_y, ++iter_z, ++iter_rgb) {
-            T depth = depth_row[u];
+            uint16_t depth = depth_row[u];
 
             // Missing points denoted by NaNs
-            if (!DepthTraits<T>::valid(depth)) {
-                if (range_max != 0.0 && !use_quiet_nan) {
-                    depth = DepthTraits<T>::fromMeters(range_max);
-                } else {
+            if ( depth == 0 ) {
                     *iter_x = *iter_y = *iter_z = *iter_rgb = bad_point;
                     continue;
-                }
-            } else if (range_max != 0.0) {
-                T depth_max = DepthTraits<T>::fromMeters(range_max);
-                if (depth > depth_max) {
-                    if (use_quiet_nan) {
-                        *iter_x = *iter_y = *iter_z = *iter_rgb = bad_point;
-                        continue;
-                    } else {
-                        depth = depth_max;
-                    }
-
-                }
             }
 
             // Fill in XYZ
             *iter_x = (u - center_x) * depth * constant_x;
             *iter_y = (v - center_y) * depth * constant_y;
-            *iter_z = DepthTraits<T>::toMeters(depth);
+            *iter_z = depth * unit_scaling ;
 
             // and RGB
             int rgb = 0x000000;
 
-            if( clr.type()==CV_8UC3 || clr.type()==CV_8UC4) {
+            if( clr.type()==CV_8UC3 ) {
                 //RGB or RGBA
                 if (clr.rows > v && clr.cols > u){
                     rgb |= ((int)clr.at<cv::Vec3b>(v, u)[2]) << 16;
@@ -449,7 +433,7 @@ void VirtualCameraNode::fetchCameraFrame() {
         image_geometry::PinholeCameraModel model;
         model.fromCameraInfo(getCameraInfo());
 
-        convert<uint16_t>(dim, clr, model, cloud_msg);
+        convert(dim, clr, model, cloud_msg);
 
         pcl_pub_->publish(*cloud_msg) ;
 

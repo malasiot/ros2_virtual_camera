@@ -4,7 +4,7 @@
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/image.hpp>
-#include <point_cloud_transport/point_cloud_transport.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 #include <image_geometry/pinhole_camera_model.h>
 #include <cv_bridge/cv_bridge.h>
 #include "tf2/exceptions.h"

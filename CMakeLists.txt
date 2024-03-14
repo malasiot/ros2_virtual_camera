@@ -14,7 +14,7 @@ find_package(Eigen3 REQUIRED)
 find_package(OpenCV 4 REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(image_geometry REQUIRED)
-find_package(point_cloud_transport REQUIRED)
+
 
 add_executable(test_moveit src/test_moveit.cpp)
 target_include_directories(test_moveit PUBLIC
@@ -52,7 +52,7 @@ ament_target_dependencies(
   virtual_camera
   rclcpp std_msgs sensor_msgs tf2
   tf2_ros tf2_eigen cv_bridge Eigen3
-  point_cloud_transport image_geometry
+  image_geometry
 )
 target_link_libraries(virtual_camera xviz ${OpenCV_LIBRARIES})
 
