@@ -16,31 +16,8 @@ find_package(cv_bridge REQUIRED)
 find_package(image_geometry REQUIRED)
 
 
-add_executable(test_moveit src/test_moveit.cpp)
-target_include_directories(test_moveit PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
-target_compile_features(test_moveit PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
-ament_target_dependencies(
-  test_moveit
-  "moveit_ros_planning_interface"
-  "rclcpp"
-)
-
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOMOC ON)
-
-add_executable(test_urdf src/test_urdf.cpp src/robot_listener.cpp src/robot_listener.hpp src/qt_executor.cpp src/robot_viewer.cpp src/robot_viewer.hpp)
-target_include_directories(test_urdf PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
-target_compile_features(test_urdf PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
-ament_target_dependencies(
-  test_urdf
-  rclcpp std_msgs sensor_msgs tf2
-  tf2_ros Eigen3
-)
-target_link_libraries(test_urdf xviz)
 
 add_executable(virtual_camera src/virtual_camera.cpp src/virtual_camera_node.cpp src/virtual_camera_node.hpp)
 target_include_directories(virtual_camera PUBLIC
@@ -56,8 +33,7 @@ ament_target_dependencies(
 )
 target_link_libraries(virtual_camera xviz ${OpenCV_LIBRARIES})
 
-
-install(TARGETS test_moveit test_urdf virtual_camera
+install(TARGETS virtual_camera
   DESTINATION lib/${PROJECT_NAME})
   
 install(DIRECTORY launch
