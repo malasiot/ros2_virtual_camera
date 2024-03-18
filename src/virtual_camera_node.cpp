@@ -22,9 +22,9 @@ using namespace Eigen ;
 
 void VirtualCameraNode::setupModel(const std::string &urdf_path) {
 
-    string urdf ;
+    string urdf = get_parameter_or("robot_description", std::string());;
 
-    if ( !urdf_path.empty() ) {
+    if ( urdf.empty() && !urdf_path.empty() ) {
         std::ifstream in(urdf_path, std::ios::in | std::ios::binary);
         if (in) {
             in.seekg(0, std::ios::end);
@@ -34,8 +34,6 @@ void VirtualCameraNode::setupModel(const std::string &urdf_path) {
             in.close();
         }
 
-    } else {
-        urdf = get_parameter_or("robot_description", std::string());
     }
 
     if ( urdf.empty() ) {
@@ -78,7 +76,7 @@ pair<double, double> parse_frame_size(const string &str) {
 }
 
 VirtualCameraNode::VirtualCameraNode(const std::string &urdf_path)
-    : Node("virtual_camera") {
+    : Node("virtual_camera", rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true)) {
 
     declare_parameter("robot_description", rclcpp::PARAMETER_STRING) ;
     target_frame_ = declare_parameter("camera_frame",  "camera_optical_frame") ;
