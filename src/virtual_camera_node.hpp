@@ -16,14 +16,16 @@
 
 class VirtualCameraNode:  public rclcpp::Node {
 public:
-    VirtualCameraNode(const std::string &urdf_path);
+    VirtualCameraNode(const std::string &urdf_path, const std::string &mesh_path);
 
     void setupPCL() ;
+
 private:
     void jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr state);
     void updateTransforms(const std::map<std::string, double> &joint_positions, const builtin_interfaces::msg::Time & time);
     void fetchCameraFrame() ;
     void setupModel(const std::string &model_path) ;
+    void setupMesh(const std::string &mesh_path);
 
     sensor_msgs::msg::CameraInfo getCameraInfo();
 
@@ -38,8 +40,10 @@ private:
     std::string target_frame_, prefix_ ;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
     std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
-    xviz::RobotScenePtr scene_ ;
-    xviz::URDFRobot robot_ ;
+    xviz::RobotScenePtr rscene_, mscene_ ;
+    xviz::NodePtr scene_ ;
+
+    xviz::URDFRobot robot_, mesh_ ;
     std::unique_ptr<xviz::OffscreenSurface> offscreen_ ;
     xviz::Renderer renderer_ ;
     Eigen::Isometry3f camera_tr_ ;

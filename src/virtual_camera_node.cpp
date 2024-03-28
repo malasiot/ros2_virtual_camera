@@ -45,11 +45,30 @@ void VirtualCameraNode::setupModel(const std::string &urdf_path) {
         return ament_index_cpp::get_package_share_directory(package);
     }) ;
 
-    scene_ = RobotScene::fromURDF(robot_) ;
+    rscene_ = RobotScene::fromURDF(robot_) ;
 
     DirectionalLight *dl = new DirectionalLight(Vector3f(1, 1, 1)) ;
     dl->setDiffuseColor(Vector3f(1, 1, 1)) ;
-    scene_->setLight(LightPtr(dl)) ;
+
+    scene_->addChild(rscene_) ;
+    scene_->setLight(LightPtr(dl));
+}
+
+void VirtualCameraNode::setupMesh(const std::string &mesh_path) {
+
+    string mesh_path_param = get_parameter_or("mesh", std::string());;
+    string path ;
+    if ( !mesh_path_param.empty()) path = mesh_path_param ;
+    else if ( !mesh_path.empty()) path = mesh_path ;
+    else return ;
+
+    mesh_ = URDFRobot::loadFile(path, {}, [](const std::string &s) {
+        return s;
+    }) ;
+
+    mscene_ = RobotScene::fromURDF(mesh_) ;
+
+    scene_->addChild(mscene_) ;
 }
 
 static string make_topic_prefix(const string &ns, const string &name) {
@@ -75,7 +94,7 @@ pair<double, double> parse_frame_size(const string &str) {
     return {w, h} ;
 }
 
-VirtualCameraNode::VirtualCameraNode(const std::string &urdf_path)
+VirtualCameraNode::VirtualCameraNode(const std::string &urdf_path, const std::string &mesh_path)
     : Node("virtual_camera", rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true)) {
 
     declare_parameter("robot_description", rclcpp::PARAMETER_STRING) ;
@@ -88,7 +107,10 @@ VirtualCameraNode::VirtualCameraNode(const std::string &urdf_path)
 
     tie(width_, height_) = parse_frame_size(frame_size) ;
 
+    scene_ = std::make_shared<xviz::Node>() ;
+
     setupModel(urdf_path) ;
+    setupMesh(mesh_path) ;
 
     auto subscriber_options = rclcpp::SubscriptionOptions();
     subscriber_options.qos_overriding_options =
@@ -257,8 +279,8 @@ void convert(
 
             // Missing points denoted by NaNs
             if ( depth == 0 ) {
-                    *iter_x = *iter_y = *iter_z = *iter_rgb = bad_point;
-                    continue;
+                *iter_x = *iter_y = *iter_z = *iter_rgb = bad_point;
+                continue;
             }
 
             // Fill in XYZ
