@@ -10,6 +10,7 @@
 #include "tf2/exceptions.h"
 #include "tf2_ros/transform_listener.h"
 #include "tf2_ros/buffer.h"
+#include "tf2_ros/transform_broadcaster.h"
 #include <xviz/gui/offscreen.hpp>
 #include <xviz/scene/renderer.hpp>
 #include <xviz/robot/robot_scene.hpp>
@@ -40,6 +41,7 @@ private:
     std::string target_frame_, prefix_ ;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
     std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+    std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_ ;
     xviz::RobotScenePtr rscene_, mscene_ ;
     xviz::NodePtr scene_ ;
 
@@ -49,6 +51,8 @@ private:
     Eigen::Isometry3f camera_tr_ ;
     rclcpp::TimerBase::SharedPtr timer_{nullptr};
     xviz::CameraPtr pcam_ ;
+    geometry_msgs::msg::TransformStamped transform_;
+
 
     float width_ = 1024, height_ = 768, yfov_ = 58 ;
 

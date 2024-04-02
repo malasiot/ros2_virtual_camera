@@ -2,13 +2,6 @@
 
 #include <QApplication>
 
-static Eigen::Vector3f parseVector(const std::string &str) {
-    Eigen::Vector3f v ;
-    std::stringstream strm(str) ;
-    strm >> v.x() >> v.y() >> v.z() ;
-    return v ;
-}
-
 int main(int argc, char * argv[])
 {
     QApplication app(argc, argv) ;

@@ -163,6 +163,32 @@ VirtualCameraNode::VirtualCameraNode(const std::string &urdf_path, const std::st
 
     offscreen_.reset(new OffscreenSurface(QSize(width_, height_))) ;
 
+    // Initialize the transform broadcaster
+    tf_broadcaster_ =
+            std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+
+    geometry_msgs::msg::TransformStamped transform_;
+
+    // Look up for the transformation between target_frame and turtle2 frames
+    // and send velocity commands for turtle2 to reach target_frame
+    try {
+        transform_ = tf_buffer_->lookupTransform(
+                    "world", target_frame_,
+                    tf2::TimePointZero, tf2::durationFromSec(2));
+
+        transform_.header.frame_id = "world" ;
+        transform_.child_frame_id = target_frame_ + "_world";
+            tf_broadcaster_->sendTransform(transform_);
+    } catch (const tf2::TransformException & ex) {
+        RCLCPP_INFO(
+                    this->get_logger(), "Could not transform %s to %s: %s",
+                    target_frame_.c_str(), "world", ex.what());
+        return;
+    }
+
+
+
+
 }
 
 
