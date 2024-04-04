@@ -1,4 +1,4 @@
-#include "virtual_camera_node.hpp"
+#include "robot_mask_node.hpp"
 
 #include <QApplication>
 
@@ -8,19 +8,17 @@ int main(int argc, char * argv[])
 
     rclcpp::init(argc, argv);
 
-    std::string urdf_path, mesh_path ;
+    std::string urdf_path ;
 
     if ( argc > 1 && strncmp(argv[1], "--ros-args", 10) != 0 ) {
-        if ( argc > 1 ) urdf_path = argv[1] ;
-        if ( argc > 2 ) mesh_path = argv[2] ;
+        urdf_path = argv[1] ;
+    
     }
 
-    auto server = std::make_shared<VirtualCameraNode>(urdf_path, mesh_path);
+    auto server = std::make_shared<RobotMaskNode>(urdf_path);
 
     rclcpp::spin(server) ;
     rclcpp::shutdown();
 
     return 0;
 }
-
-

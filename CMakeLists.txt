@@ -33,7 +33,23 @@ ament_target_dependencies(
 )
 target_link_libraries(virtual_camera xviz ${OpenCV_LIBRARIES})
 
-install(TARGETS virtual_camera
+add_executable(robot_mask src/robot_mask.cpp src/robot_mask_node.cpp src/robot_mask_node.hpp)
+
+target_include_directories(robot_mask PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${OpenCV_INCLUDE_DIRS})
+target_compile_features(robot_mask PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+ament_target_dependencies(
+  robot_mask
+  rclcpp std_msgs sensor_msgs tf2
+  tf2_ros tf2_eigen cv_bridge Eigen3
+  image_geometry
+)
+target_link_libraries(robot_mask xviz ${OpenCV_LIBRARIES})
+
+
+install(TARGETS virtual_camera robot_mask
   DESTINATION lib/${PROJECT_NAME})
   
 install(DIRECTORY launch

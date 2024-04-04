@@ -1,4 +1,4 @@
-#include "virtual_camera_node.hpp"
+#include "robot_mask_node.hpp"
 
 #include <chrono>
 #include <functional>
@@ -20,7 +20,7 @@ using namespace std ;
 using namespace xviz ;
 using namespace Eigen ;
 
-void VirtualCameraNode::setupModel(const std::string &urdf_path) {
+void RobotMaskNode::setupModel(const std::string &urdf_path) {
 
     string urdf = get_parameter_or("robot_description", std::string());;
 
@@ -55,24 +55,6 @@ void VirtualCameraNode::setupModel(const std::string &urdf_path) {
     scene_->setLight(LightPtr(dl));
 }
 
-void VirtualCameraNode::setupMesh(const std::string &mesh_path) {
-
-    string mesh_path_param = get_parameter_or("mesh", std::string());;
-    string path ;
-    if ( !mesh_path_param.empty()) path = mesh_path_param ;
-    else if ( !mesh_path.empty()) path = mesh_path ;
-   
-   cout << path << endl ;
-    if ( path.empty() ) return ;
-    mesh_ = URDFRobot::loadFile(path, {}, [](const std::string &s) {
-        return s;
-    }) ;
-
-    mscene_ = RobotScene::fromURDF(mesh_) ;
-
-    scene_->addChild(mscene_) ;
-}
-
 static string make_topic_prefix(const string &ns, const string &name) {
     string res ;
     if ( !ns.empty() ) {
@@ -96,7 +78,7 @@ pair<double, double> parse_frame_size(const string &str) {
     return {w, h} ;
 }
 
-VirtualCameraNode::VirtualCameraNode(const std::string &urdf_path, const std::string &mesh_path)
+RobotMaskNode::RobotMaskNode(const std::string &urdf_path)
     : Node("virtual_camera", rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(false)) {
 
     declare_parameter("robot_description", rclcpp::PARAMETER_STRING) ;
@@ -105,15 +87,14 @@ VirtualCameraNode::VirtualCameraNode(const std::string &urdf_path, const std::st
     yfov_ = declare_parameter("fov", yfov_) * M_PI/180.0;
     string frame_size = declare_parameter("frame_size", "1024x768") ;
     std::string camera_namespace = declare_parameter("camera_namespace", "") ;
-    std::string camera_name = declare_parameter("image_topic", "virtual_camera") ;
+    std::string camera_name = declare_parameter("image_topic", "robot_mask") ;
 
     tie(width_, height_) = parse_frame_size(frame_size) ;
 
     scene_ = std::make_shared<xviz::Node>() ;
 
     setupModel(urdf_path) ;
-    setupMesh(mesh_path) ;
-
+   
     auto subscriber_options = rclcpp::SubscriptionOptions();
     subscriber_options.qos_overriding_options =
             rclcpp::QosOverridingOptions::with_default_policies();
@@ -122,34 +103,20 @@ VirtualCameraNode::VirtualCameraNode(const std::string &urdf_path, const std::st
     joint_state_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
                 "joint_states",
                 rclcpp::SensorDataQoS(),
-                std::bind(&VirtualCameraNode::jointStateCallback, this, std::placeholders::_1),
+                std::bind(&RobotMaskNode::jointStateCallback, this, std::placeholders::_1),
                 subscriber_options);
 
 
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
-
-    // Call on_timer function every second
-    timer_ = create_wall_timer(
-                std::chrono::milliseconds(long(1000/publish_freq)), std::bind(&VirtualCameraNode::fetchCameraFrame, this));
-
     prefix_ = make_topic_prefix(camera_namespace, camera_name) ;
 
-    string color_camera_info_topic = prefix_ + "/color/camera_info" ;
-    string color_image_topic = prefix_ + "/color/image_raw" ;
-
-    color_camera_info_pub_ = create_publisher<sensor_msgs::msg::CameraInfo>(color_camera_info_topic, 10);
-    color_image_pub_ = create_publisher<sensor_msgs::msg::Image>(color_image_topic, 10);
-
-    string depth_camera_info_topic = prefix_ + "/depth/camera_info" ;
-    string depth_image_topic = prefix_ + "/depth/image_raw" ;
+    string depth_camera_info_topic = prefix_ + "/camera_info" ;
+    string depth_image_topic = prefix_ + "/image_raw" ;
 
     depth_camera_info_pub_ = create_publisher<sensor_msgs::msg::CameraInfo>(depth_camera_info_topic, 10);
     depth_image_pub_ = create_publisher<sensor_msgs::msg::Image>(depth_image_topic, 10);
-
-    string pcl_topic = prefix_ + "/points" ;
-    pcl_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(pcl_topic, 10) ;
 
     PerspectiveCamera *pcam = new PerspectiveCamera(width_/(float)height_, // aspect ratio
                                                     yfov_,   // fov
@@ -164,7 +131,7 @@ VirtualCameraNode::VirtualCameraNode(const std::string &urdf_path, const std::st
     pcam_->setViewport(width_, height_) ;
 
     offscreen_.reset(new OffscreenSurface(QSize(width_, height_))) ;
-
+/*
     // Initialize the transform broadcaster
     tf_broadcaster_ =
             std::make_unique<tf2_ros::TransformBroadcaster>(*this);
@@ -187,14 +154,14 @@ VirtualCameraNode::VirtualCameraNode(const std::string &urdf_path, const std::st
                     target_frame_.c_str(), "world", ex.what());
         return;
     }
-
+*/
 
 
 
 }
 
 
-void VirtualCameraNode::jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr state)
+void RobotMaskNode::jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr state)
 {
     rclcpp::Time now = this->now();
     if (last_callback_time_.nanoseconds() > now.nanoseconds()) {
@@ -238,7 +205,7 @@ void VirtualCameraNode::jointStateCallback(const sensor_msgs::msg::JointState::S
 
 }
 
-void VirtualCameraNode::updateTransforms(const std::map<std::string, double> &joint_positions, const builtin_interfaces::msg::Time &time) {
+void RobotMaskNode::updateTransforms(const std::map<std::string, double> &joint_positions, const builtin_interfaces::msg::Time &time) {
     for( const auto &jp: joint_positions) {
         robot_.setJointPosition(jp.first, jp.second);
     }
@@ -247,93 +214,10 @@ void VirtualCameraNode::updateTransforms(const std::map<std::string, double> &jo
 
     scene_->updateTransforms(transforms) ;
 
+    publishCameraFrame();
+
 }
-
-template<typename T>
-struct DepthTraits {};
-
-template<>
-struct DepthTraits<uint16_t>
-{
-    static inline bool valid(uint16_t depth) {return depth != 0;}
-    static inline float toMeters(uint16_t depth) {return depth * 0.001f;}   // originally mm
-    static inline uint16_t fromMeters(float depth) {return (depth * 1000.0f) + 0.5f;}
-    static inline void initializeBuffer(std::vector<uint8_t> &) {}  // Do nothing
-};
-
-template<>
-struct DepthTraits<float>
-{
-    static inline bool valid(float depth) {return std::isfinite(depth);}
-    static inline float toMeters(float depth) {return depth;}
-    static inline float fromMeters(float depth) {return depth;}
-
-    static inline void initializeBuffer(std::vector<uint8_t> & buffer)
-    {
-        float * start = reinterpret_cast<float *>(&buffer[0]);
-        float * end = reinterpret_cast<float *>(&buffer[0] + buffer.size());
-        std::fill(start, end, std::numeric_limits<float>::quiet_NaN());
-    }
-};
-
-void convert(
-        const cv::Mat & depth,
-        const cv::Mat &clr,
-        const image_geometry::PinholeCameraModel & model,
-        sensor_msgs::msg::PointCloud2::SharedPtr & cloud_msg,
-        double range_max = 0.0,
-        bool use_quiet_nan = false
-        )
-{
-    // Use correct principal point from calibration
-    float center_x = model.cx();
-    float center_y = model.cy();
-
-    // Combine unit conversion (if necessary) with scaling by focal length for computing (X,Y)
-    double unit_scaling = 0.001f ;
-    float constant_x = unit_scaling / model.fx();
-    float constant_y = unit_scaling / model.fy();
-    float bad_point = std::numeric_limits<float>::quiet_NaN();
-
-    sensor_msgs::PointCloud2Iterator<float> iter_x(*cloud_msg, "x");
-    sensor_msgs::PointCloud2Iterator<float> iter_y(*cloud_msg, "y");
-    sensor_msgs::PointCloud2Iterator<float> iter_z(*cloud_msg, "z");
-    sensor_msgs::PointCloud2Iterator<float> iter_rgb(*cloud_msg, "rgb");
-    const uint16_t * depth_row = reinterpret_cast<const uint16_t *>(&depth.data[0]);
-    int row_step = depth.step / sizeof(uint16_t);
-    for (int v = 0; v < static_cast<int>(cloud_msg->height); ++v, depth_row += row_step) {
-        for (int u = 0; u < static_cast<int>(cloud_msg->width); ++u, ++iter_x, ++iter_y, ++iter_z, ++iter_rgb) {
-            uint16_t depth = depth_row[u];
-
-            // Missing points denoted by NaNs
-            if ( depth == 0 ) {
-                *iter_x = *iter_y = *iter_z = *iter_rgb = bad_point;
-                continue;
-            }
-
-            // Fill in XYZ
-            *iter_x = (u - center_x) * depth * constant_x;
-            *iter_y = (v - center_y) * depth * constant_y;
-            *iter_z = depth * unit_scaling ;
-
-            // and RGB
-            int rgb = 0x000000;
-
-            if( clr.type()==CV_8UC3 ) {
-                //RGB or RGBA
-                if (clr.rows > v && clr.cols > u){
-                    rgb |= ((int)clr.at<cv::Vec3b>(v, u)[2]) << 16;
-                    rgb |= ((int)clr.at<cv::Vec3b>(v, u)[1]) << 8;
-                    rgb |= ((int)clr.at<cv::Vec3b>(v, u)[0]);
-                }
-            }
-
-            *iter_rgb = *reinterpret_cast<float*>(&rgb);
-        }
-    }
-}
-
-sensor_msgs::msg::CameraInfo VirtualCameraNode::getCameraInfo() {
+sensor_msgs::msg::CameraInfo RobotMaskNode::getCameraInfo() {
     sensor_msgs::msg::CameraInfo info ;
     info.width = width_;
     info.height = height_ ;
@@ -383,21 +267,16 @@ sensor_msgs::msg::CameraInfo VirtualCameraNode::getCameraInfo() {
     return info ;
 }
 
-void VirtualCameraNode::fetchCameraFrame() {
-    if ( color_camera_info_pub_->get_subscription_count() != 0 ) {
-        sensor_msgs::msg::CameraInfo info = getCameraInfo() ;
-        color_camera_info_pub_->publish(info) ;
-    }
-
+void RobotMaskNode::publishCameraFrame() {
+   
     if ( depth_camera_info_pub_->get_subscription_count() != 0 ) {
         sensor_msgs::msg::CameraInfo info = getCameraInfo() ;
         depth_camera_info_pub_->publish(info) ;
     }
 
-    bool pub_color_image = color_image_pub_->get_subscription_count() != 0 ;
     bool pub_depth_image = depth_image_pub_->get_subscription_count() != 0 ;
 
-    if ( pub_color_image || pub_depth_image ) {
+    if ( pub_depth_image ) {
         try {
             geometry_msgs::msg::TransformStamped t  = tf_buffer_->lookupTransform(
                         target_frame_, "world",  tf2::TimePointZero, tf2::durationFromSec(5));
@@ -411,31 +290,7 @@ void VirtualCameraNode::fetchCameraFrame() {
             pcam_->setViewTransform(camera_tr_.matrix());
             renderer_.render(scene_, pcam_) ;
 
-
-            //  cv::imwrite("/tmp/im.png", clr) ;
-
-        } catch (const tf2::TransformException & ex) {
-            RCLCPP_INFO(
-                        this->get_logger(), "Could not transform world to %s: %s",
-                        target_frame_.c_str(), ex.what());
-            return;
-        }
-    }
-
-    if ( pub_color_image ) {
-        auto color = offscreen_->getImage() ;
-
-        cv::Mat clr(color.height(), color.width(), CV_8UC4, (void *)color.data());
-        cv::cvtColor(clr, clr, cv::COLOR_RGBA2BGR) ;
-
-        sensor_msgs::msg::Image::SharedPtr msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", clr).toImageMsg();
-        msg->header.stamp = get_clock()->now();
-        msg->header.frame_id = target_frame_ ;
-        color_image_pub_->publish(*msg);
-    }
-
-    if ( pub_depth_image ) {
-        auto depth = offscreen_->getDepthBuffer(0.01, 10) ;
+             auto depth = offscreen_->getDepthBuffer(0.01, 10) ;
 
         cv::Mat dim(depth.height(), depth.width(), CV_16UC1, (void *)depth.data()) ;
 
@@ -447,43 +302,18 @@ void VirtualCameraNode::fetchCameraFrame() {
         msg.header.stamp = get_clock()->now();
         msg.header.frame_id = target_frame_ ;
         depth_image_pub_->publish(msg);
+
+
+            //  cv::imwrite("/tmp/im.png", clr) ;
+
+        } catch (const tf2::TransformException & ex) {
+            RCLCPP_INFO(
+                        this->get_logger(), "Could not transform world to %s: %s",
+                        target_frame_.c_str(), ex.what());
+            return;
+        }
     }
 
-    if ( pcl_pub_->get_subscription_count() > 0 ) {
+   
 
-        auto color = offscreen_->getImage() ;
-
-        cv::Mat clr(color.height(), color.width(), CV_8UC4, (void *)color.data());
-        cv::cvtColor(clr, clr, cv::COLOR_RGBA2BGR) ;
-
-        auto depth = offscreen_->getDepthBuffer(0.01, 10) ;
-
-        cv::Mat dim(depth.height(), depth.width(), CV_16UC1, (void *)depth.data()) ;
-
-        sensor_msgs::msg::PointCloud2::SharedPtr cloud_msg =
-                std::make_shared<sensor_msgs::msg::PointCloud2>();
-        cloud_msg->header = std_msgs::msg::Header();
-        cloud_msg->header.stamp = get_clock()->now();
-        cloud_msg->header.frame_id = target_frame_ ;
-        cloud_msg->height = height_;
-        cloud_msg->width = width_;
-        cloud_msg->is_dense = false;
-        cloud_msg->is_bigendian = false;
-        cloud_msg->fields.clear();
-        cloud_msg->fields.reserve(2);
-
-
-        sensor_msgs::PointCloud2Modifier pcd_modifier(*cloud_msg);
-        pcd_modifier.setPointCloud2FieldsByString(2, "xyz", "rgb");
-
-        // g_cam_info here is a sensor_msg::msg::CameraInfo::SharedPtr,
-        // which we get from the depth_camera_info topic.
-        image_geometry::PinholeCameraModel model;
-        model.fromCameraInfo(getCameraInfo());
-
-        convert(dim, clr, model, cloud_msg);
-
-        pcl_pub_->publish(*cloud_msg) ;
-
-    }
 }
