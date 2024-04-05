@@ -61,11 +61,13 @@ void VirtualCameraNode::setupMesh(const std::string &mesh_path) {
     string path ;
     if ( !mesh_path_param.empty()) path = mesh_path_param ;
     else if ( !mesh_path.empty()) path = mesh_path ;
-   
-   cout << path << endl ;
+  
     if ( path.empty() ) return ;
-    mesh_ = URDFRobot::loadFile(path, {}, [](const std::string &s) {
-        return s;
+
+    RCLCPP_ERROR(this->get_logger(), "Loading URDF mesh %s", path.c_str());
+
+    mesh_ = URDFRobot::loadFile(path, {}, [](const std::string &package) {
+        return ament_index_cpp::get_package_share_directory(package);
     }) ;
 
     mscene_ = RobotScene::fromURDF(mesh_) ;
@@ -100,6 +102,7 @@ VirtualCameraNode::VirtualCameraNode(const std::string &urdf_path, const std::st
     : Node("virtual_camera", rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(false)) {
 
     declare_parameter("robot_description", rclcpp::PARAMETER_STRING) ;
+    declare_parameter("mesh", rclcpp::PARAMETER_STRING) ;
     target_frame_ = declare_parameter("camera_frame",  "camera_optical_frame") ;
     double publish_freq = declare_parameter("update_freq", (double)10.0) ;
     yfov_ = declare_parameter("fov", yfov_) * M_PI/180.0;
@@ -333,12 +336,12 @@ void convert(
     }
 }
 
-sensor_msgs::msg::CameraInfo VirtualCameraNode::getCameraInfo() {
+sensor_msgs::msg::CameraInfo VirtualCameraNode::getCameraInfo(rclcpp::Time t) {
     sensor_msgs::msg::CameraInfo info ;
     info.width = width_;
     info.height = height_ ;
     info.header.frame_id = target_frame_ ;
-    info.header.stamp = get_clock()->now() ;
+    info.header.stamp = t ;
 
     float fy = height_ / ( 2 * tan( yfov_ / 2 )) ;
 
@@ -384,15 +387,8 @@ sensor_msgs::msg::CameraInfo VirtualCameraNode::getCameraInfo() {
 }
 
 void VirtualCameraNode::fetchCameraFrame() {
-    if ( color_camera_info_pub_->get_subscription_count() != 0 ) {
-        sensor_msgs::msg::CameraInfo info = getCameraInfo() ;
-        color_camera_info_pub_->publish(info) ;
-    }
-
-    if ( depth_camera_info_pub_->get_subscription_count() != 0 ) {
-        sensor_msgs::msg::CameraInfo info = getCameraInfo() ;
-        depth_camera_info_pub_->publish(info) ;
-    }
+   
+    rclcpp::Time ts(get_clock()->now()) ;
 
     bool pub_color_image = color_image_pub_->get_subscription_count() != 0 ;
     bool pub_depth_image = depth_image_pub_->get_subscription_count() != 0 ;
@@ -422,6 +418,16 @@ void VirtualCameraNode::fetchCameraFrame() {
         }
     }
 
+     if ( color_camera_info_pub_->get_subscription_count() != 0 ) {
+        sensor_msgs::msg::CameraInfo info = getCameraInfo(ts) ;
+        color_camera_info_pub_->publish(info) ;
+    }
+
+    if ( depth_camera_info_pub_->get_subscription_count() != 0 ) {
+        sensor_msgs::msg::CameraInfo info = getCameraInfo(ts) ;
+        depth_camera_info_pub_->publish(info) ;
+    }
+
     if ( pub_color_image ) {
         auto color = offscreen_->getImage() ;
 
@@ -429,7 +435,7 @@ void VirtualCameraNode::fetchCameraFrame() {
         cv::cvtColor(clr, clr, cv::COLOR_RGBA2BGR) ;
 
         sensor_msgs::msg::Image::SharedPtr msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", clr).toImageMsg();
-        msg->header.stamp = get_clock()->now();
+        msg->header.stamp = ts;
         msg->header.frame_id = target_frame_ ;
         color_image_pub_->publish(*msg);
     }
@@ -444,7 +450,7 @@ void VirtualCameraNode::fetchCameraFrame() {
 
         sensor_msgs::msg::Image msg ;
         cv_bridge::CvImage(std_msgs::msg::Header(), sensor_msgs::image_encodings::TYPE_16UC1, dim).toImageMsg(msg);
-        msg.header.stamp = get_clock()->now();
+        msg.header.stamp = ts;
         msg.header.frame_id = target_frame_ ;
         depth_image_pub_->publish(msg);
     }
@@ -463,7 +469,7 @@ void VirtualCameraNode::fetchCameraFrame() {
         sensor_msgs::msg::PointCloud2::SharedPtr cloud_msg =
                 std::make_shared<sensor_msgs::msg::PointCloud2>();
         cloud_msg->header = std_msgs::msg::Header();
-        cloud_msg->header.stamp = get_clock()->now();
+        cloud_msg->header.stamp = ts;
         cloud_msg->header.frame_id = target_frame_ ;
         cloud_msg->height = height_;
         cloud_msg->width = width_;
@@ -479,7 +485,7 @@ void VirtualCameraNode::fetchCameraFrame() {
         // g_cam_info here is a sensor_msg::msg::CameraInfo::SharedPtr,
         // which we get from the depth_camera_info topic.
         image_geometry::PinholeCameraModel model;
-        model.fromCameraInfo(getCameraInfo());
+        model.fromCameraInfo(getCameraInfo(ts));
 
         convert(dim, clr, model, cloud_msg);
 

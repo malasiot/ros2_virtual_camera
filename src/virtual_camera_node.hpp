@@ -28,7 +28,7 @@ private:
     void setupModel(const std::string &model_path) ;
     void setupMesh(const std::string &mesh_path);
 
-    sensor_msgs::msg::CameraInfo getCameraInfo();
+    sensor_msgs::msg::CameraInfo getCameraInfo(rclcpp::Time t);
 
 private:
     rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
