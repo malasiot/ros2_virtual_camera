@@ -58,13 +58,12 @@ void RobotMaskNode::setupModel(const std::string &urdf_path) {
 static string make_topic_prefix(const string &ns, const string &name) {
     string res ;
     if ( !ns.empty() ) {
-        res += '/' ;
         res += ns ;
+        res += '/' ;
     }
 
     if ( !name.empty() ) {
-        res += '/' ;
-        res += name ;
+         res += name ;
     }
 
     return res ;
@@ -79,10 +78,10 @@ pair<double, double> parse_frame_size(const string &str) {
 }
 
 RobotMaskNode::RobotMaskNode(const std::string &urdf_path)
-    : Node("virtual_camera", rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(false)) {
+    : Node("robot_mask", rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(false)) {
 
     declare_parameter("robot_description", rclcpp::PARAMETER_STRING) ;
-    target_frame_ = declare_parameter("camera_frame",  "camera_optical_frame") ;
+    target_frame_ = declare_parameter("camera_frame",  "camera_color_optical_frame") ;
     double publish_freq = declare_parameter("update_freq", (double)10.0) ;
     yfov_ = declare_parameter("fov", yfov_) * M_PI/180.0;
     string frame_size = declare_parameter("frame_size", "1024x768") ;
@@ -101,7 +100,7 @@ RobotMaskNode::RobotMaskNode(const std::string &urdf_path)
 
     // subscribe to joint state
     joint_state_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
-                "joint_states",
+                "/joint_states",
                 rclcpp::SensorDataQoS(),
                 std::bind(&RobotMaskNode::jointStateCallback, this, std::placeholders::_1),
                 subscriber_options);

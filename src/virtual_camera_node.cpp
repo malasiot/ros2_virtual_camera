@@ -48,6 +48,10 @@ void VirtualCameraNode::setupModel(const std::string &urdf_path) {
 
     rscene_ = RobotScene::fromURDF(robot_) ;
 
+    xviz::NodePtr camera_node = rscene_->findNodeByName(camera_link_name_);
+    if ( camera_node ) 
+    camera_node->setVisible(false) ;
+
     DirectionalLight *dl = new DirectionalLight(Vector3f(1, 1, 1)) ;
     dl->setDiffuseColor(Vector3f(1, 1, 1)) ;
 
@@ -78,13 +82,12 @@ void VirtualCameraNode::setupMesh(const std::string &mesh_path) {
 static string make_topic_prefix(const string &ns, const string &name) {
     string res ;
     if ( !ns.empty() ) {
-        res += '/' ;
         res += ns ;
+        res += '/' ;
     }
 
     if ( !name.empty() ) {
-        res += '/' ;
-        res += name ;
+         res += name ;
     }
 
     return res ;
@@ -109,6 +112,7 @@ VirtualCameraNode::VirtualCameraNode(const std::string &urdf_path, const std::st
     string frame_size = declare_parameter("frame_size", "1024x768") ;
     std::string camera_namespace = declare_parameter("camera_namespace", "") ;
     std::string camera_name = declare_parameter("image_topic", "virtual_camera") ;
+    camera_link_name_ = declare_parameter("camera_link", "camera_link");
 
     tie(width_, height_) = parse_frame_size(frame_size) ;
 
@@ -123,7 +127,7 @@ VirtualCameraNode::VirtualCameraNode(const std::string &urdf_path, const std::st
 
     // subscribe to joint state
     joint_state_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
-                "joint_states",
+                "/joint_states",
                 rclcpp::SensorDataQoS(),
                 std::bind(&VirtualCameraNode::jointStateCallback, this, std::placeholders::_1),
                 subscriber_options);

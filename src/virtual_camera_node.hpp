@@ -55,6 +55,7 @@ private:
 
 
     float width_ = 1024, height_ = 768, yfov_ = 58 ;
+    std::string camera_link_name_ ;
 
 };
 
