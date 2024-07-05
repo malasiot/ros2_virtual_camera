@@ -78,16 +78,18 @@ pair<double, double> parse_frame_size(const string &str) {
 }
 
 RobotMaskNode::RobotMaskNode(const std::string &urdf_path)
-    : Node("robot_mask", rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(false)) {
+    : Node("robot_mask") {
 
     declare_parameter("robot_description", rclcpp::PARAMETER_STRING) ;
-    target_frame_ = declare_parameter("camera_frame",  "camera_color_optical_frame") ;
+    declare_parameter("camera_frame",  rclcpp::PARAMETER_STRING) ;
     double publish_freq = declare_parameter("update_freq", (double)10.0) ;
     yfov_ = declare_parameter("fov", yfov_) * M_PI/180.0;
-    string frame_size = declare_parameter("frame_size", "1024x768") ;
+    string frame_size = declare_parameter("frame_size", "1280x720") ;
     std::string camera_namespace = declare_parameter("camera_namespace", "") ;
     std::string camera_name = declare_parameter("image_topic", "robot_mask") ;
 
+    target_frame_ = get_parameter("camera_frame").as_string() ;
+    RCLCPP_INFO(get_logger(), "Camera frame:%s", target_frame_.c_str());
     tie(width_, height_) = parse_frame_size(frame_size) ;
 
     scene_ = std::make_shared<xviz::Node>() ;

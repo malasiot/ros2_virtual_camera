@@ -51,7 +51,7 @@ private:
     xviz::CameraPtr pcam_ ;
     geometry_msgs::msg::TransformStamped transform_;
 
-    float width_ = 1024, height_ = 768, yfov_ = 58 ;
+    float width_ = 1280, height_ = 720, yfov_ = 43 ;//58 ;
 
 };
 
