@@ -17,7 +17,7 @@
 
 class RobotMaskNode:  public rclcpp::Node {
 public:
-    RobotMaskNode(const std::string &urdf_path);
+    RobotMaskNode(const std::string &urdf_path, const std::string &ns);
 
     void setupPCL() ;
 

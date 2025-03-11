@@ -77,8 +77,8 @@ pair<double, double> parse_frame_size(const string &str) {
     return {w, h} ;
 }
 
-RobotMaskNode::RobotMaskNode(const std::string &urdf_path)
-    : Node("robot_mask") {
+RobotMaskNode::RobotMaskNode(const std::string &urdf_path, const std::string &ns)
+    : Node("robot_mask", ns) {
 
     declare_parameter("robot_description", rclcpp::PARAMETER_STRING) ;
     declare_parameter("camera_frame",  rclcpp::PARAMETER_STRING) ;
@@ -93,6 +93,7 @@ RobotMaskNode::RobotMaskNode(const std::string &urdf_path)
     tie(width_, height_) = parse_frame_size(frame_size) ;
 
     scene_ = std::make_shared<xviz::Node>() ;
+    prefix_ = ns ;
 
     setupModel(urdf_path) ;
    
@@ -102,7 +103,7 @@ RobotMaskNode::RobotMaskNode(const std::string &urdf_path)
 
     // subscribe to joint state
     joint_state_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
-                "/joint_states",
+                ns + "/joint_states",
                 rclcpp::SensorDataQoS(),
                 std::bind(&RobotMaskNode::jointStateCallback, this, std::placeholders::_1),
                 subscriber_options);
