@@ -88,6 +88,8 @@ RobotMaskNode::RobotMaskNode(const std::string &urdf_path, const std::string &ns
     std::string camera_namespace = declare_parameter("camera_namespace", "") ;
     std::string camera_name = declare_parameter("image_topic", "robot_mask") ;
 
+    declare_parameter("joint_states_topic", ns + "/joint_states") ;
+
     target_frame_ = get_parameter("camera_frame").as_string() ;
     RCLCPP_INFO(get_logger(), "Camera frame:%s", target_frame_.c_str());
     tie(width_, height_) = parse_frame_size(frame_size) ;
@@ -101,9 +103,10 @@ RobotMaskNode::RobotMaskNode(const std::string &urdf_path, const std::string &ns
     subscriber_options.qos_overriding_options =
             rclcpp::QosOverridingOptions::with_default_policies();
 
+    string js_topic = get_parameter("joint_states_topic").as_string() ;        
     // subscribe to joint state
     joint_state_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
-                ns + "/joint_states",
+                js_topic,
                 rclcpp::SensorDataQoS(),
                 std::bind(&RobotMaskNode::jointStateCallback, this, std::placeholders::_1),
                 subscriber_options);
